@@ -91,7 +91,7 @@ fn handle_client(mut stream: TcpStream) {
 	        };
 	    }
 		let elapsed_time = timestamp() - start_time;
-		println!("Elapsed time: {}", elapsed_time);
+		println!("Elapsed time: {} seconds", elapsed_time);
 		match stream.write(result.as_bytes()) {
 			Err(_) => {
 				break 'outer;
