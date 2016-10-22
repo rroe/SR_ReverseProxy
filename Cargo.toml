@@ -1,0 +1,16 @@
+[package]
+
+name = "reverseproxy"
+version = "0.0.1"
+authors = [ "Richard Roe <rroe@stetson.edu>" ]
+
+[dependencies]
+
+rand = "*"
+log = "*"
+
+[dependencies.green]
+git = "https://github.com/rust-lang/green-rs"
+
+[dependencies.rustuv]
+git = "https://github.com/rust-lang/green-rs"
