@@ -8,9 +8,4 @@ authors = [ "Richard Roe <rroe@stetson.edu>" ]
 
 rand = "*"
 log = "*"
-
-[dependencies.green]
-git = "https://github.com/rust-lang/green-rs"
-
-[dependencies.rustuv]
-git = "https://github.com/rust-lang/green-rs"
+time = "*"

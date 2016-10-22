@@ -1,73 +1,65 @@
-#![feature(phase)]
-#[phase(plugin, link)] extern crate log;
-extern crate green;
-extern crate rustuv;
+extern crate time;
 
-use std::io;
-use std::os;
-use std::io::{Listener,Acceptor,TcpStream};
+use std::net::{TcpListener, TcpStream};
+use std::thread;
+use std::io::Read;
+use std::io::Write;
 
-#[start]
-fn start(argc: int, argv: *const *const u8) -> int {
-    green::start(argc, argv, rustuv::event_loop, main)
+fn timestamp () -> f64 {
+    let timespec = time::get_time();
+    // 1459440009.113178
+    let mills: f64 = timespec.sec as f64 + (timespec.nsec as f64 / 1000.0 / 1000.0 / 1000.0 );
+    mills
 }
 
+fn handle_client(mut stream: TcpStream) {
+    let mut buf;
+
+	let start_time = timestamp();
+
+    loop {
+        // clear out the buffer so we don't send garbage
+        buf = [0; 1024];
+        let _ = match stream.read(&mut buf) {
+            Err(e) => panic!("Got an error: {}", e),
+            Ok(m) => {
+				let elapsed_time = timestamp() - start_time;
+				println!("Current elapsed time: {}", elapsed_time);
+                if m == 0 {
+                    // we've got an EOF
+                    break;
+                }
+                m
+            },
+        };
+
+		let mut s = String::new();
+		for num in buf.iter() {
+			let num: u8 = *num;
+			s.push(num as char);
+		}
+		println!("===============[START]===============\n{}\n================[END]================\n", s);
+
+		let result: String = String::from("<html><head><title>Test!</title></head><body>Hello from Rust!</body></html>");
+
+        match stream.write(result.as_bytes()) {
+            Err(_) => break,
+            Ok(_) => continue,
+        }
+    }
+}
 
 fn main() {
-    let args = os::args();
-    if args.len() < 3 {
-        println!("Usage: {} <ip> <port>", args[0]);
-        os::set_exit_status(1);
-        return
-    }
-    let host = args[1].as_slice();
-    let port = from_str::<u16>(args[2].as_slice()).unwrap();
-
-    let sock = io::TcpListener::bind(host, port).unwrap();
-    let mut acceptor = sock.listen();
-    debug!("Listening...");
-    for stream in acceptor.incoming() {
-        match stream {
-            Err(e) => warn!("Accept error: {}", e),
+    let listener = TcpListener::bind("127.0.0.1:88").unwrap();
+	println!("Starting TCP listener...");
+    for stream in listener.incoming() {
+    	match stream {
+            Err(e) => { println!("failed: {}", e) }
             Ok(stream) => {
-                spawn(proc() {
-                    println!("{}", handle_client(stream));
-                })
+                thread::spawn(move || {
+                    handle_client(stream)
+                });
             }
         }
     }
-}
-
-type Buf = [u8, ..10240];
-
-fn handle_client(mut stream: io::TcpStream) -> io::IoResult<()> {
-    info!("New client {}", stream.peer_name());
-    let mut buf: Buf = [0u8, ..10240];
-    let (child_tx, parent_rx) = channel::<Buf>();
-    let (parent_tx, child_rx) = channel::<Buf>();
-
-    spawn(proc() {
-        // if this `deschedule` will be commented, only one CPU core will be used (rust 0.11)
-        std::task::deschedule();
-        for mut buf in child_rx.iter() {
-            for _ in range::<u8>(0, 20) {
-                buf.reverse();
-            }
-            child_tx.send(buf);
-        };
-    });
-    loop {
-        let got = try!(stream.read(buf));
-        if got == 0 {
-            // Is it possible? Or IoError will be raised anyway?
-            break
-        }
-        // outsource CPU-heavy work to separate task, because current green+libuv
-        // implementation bind all IO tasks to one scheduler (rust 0.11)
-        // see https://botbot.me/mozilla/rust/2014-08-01/?msg=18995736&page=11
-        parent_tx.send(buf);
-        let to_send: Buf = parent_rx.recv();
-        try!(stream.write(to_send.slice(0, got)));
-    }
-    Ok(())
 }
