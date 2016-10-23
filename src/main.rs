@@ -12,6 +12,49 @@ fn timestamp() -> f64 {
     seconds
 }
 
+fn proxy_req_to_localhost(client_req: String) -> String{
+    let result_err: String = String::from("<html><head><title>Reverse Proxy</title></head><body>Unknown Error Occurred.</body></html>");
+    let mut socket = TcpStream::connect("127.0.0.1:80").unwrap();
+
+    let _ = match socket.write(client_req.as_bytes()) {
+        Err(e) => {
+            println!("[ERROR] on proxy: {}", e);
+            return result_err;
+        },
+        Ok(m) => {
+            //Continue as normal
+            m
+        }
+    };
+    let mut resp: String = String::with_capacity(32768 * 32);
+    loop {
+        let mut buf = [0; 32768 * 32];
+        let _ = match socket.read(&mut buf) {
+            Err(e) => {
+                println!("[ERROR] on proxy: {}", e);
+                return result_err;
+            },
+            Ok(m) => {
+                let mut tmp_string = String::new();
+                for byte in buf.iter() {
+                    tmp_string.push(*byte as char);
+                }
+                println!("Local proxy response chunk size: {}", m);
+                let tmp_string = get_string_from_buffer_string(tmp_string);
+                // println!("GOT: {}", tmp_string);
+                resp.push_str(&tmp_string);
+                if end_in_two_nl(&resp) {
+                    break;
+                }
+                m
+            }
+        };
+    }
+    // println!("==============[BEGIN]==============\n{}\n===============[END]===============",
+    //     resp);
+    resp
+}
+
 fn get_string_from_buffer_string(string: String) -> String {
 	let mut out = String::new();
 	for c in string.chars() {
@@ -56,8 +99,6 @@ fn handle_client(mut stream: TcpStream) {
 	println!("New connection established!");
 	let start_time = timestamp();
 
-	let result: String = String::from("<html><head><title>Test!</title></head><body>Hello from Rust!</body></html>");
-
 	let mut from_client = String::new();
 
 	'outer: loop {
@@ -88,14 +129,16 @@ fn handle_client(mut stream: TcpStream) {
 	            },
 	        };
 	    }
-		match stream.write(result.as_bytes()) {
+
+        let local_response: String = proxy_req_to_localhost(from_client.clone());
+
+		match stream.write(local_response.as_bytes()) {
 			Err(e) => {
                 println!("[ERROR] on write: {}", e);
 				break 'outer;
 			}
 			Ok(_) => {
-                println!("==============[BEGIN]==============\n{}\nElapsed time: {}s\n===============[END]===============",
-                    from_client, start_time - timestamp());
+                println!("Response time: {}", timestamp() - start_time);
 				break 'outer;
 			}
 		}
