@@ -15,15 +15,12 @@ fn timestamp() -> f64 {
 fn proxy_req_to_localhost(client_req: String) -> String{
     let result_err: String = String::from("<html><head><title>Reverse Proxy</title></head><body>Unknown Error Occurred.</body></html>");
     let mut socket = TcpStream::connect("127.0.0.1:80").unwrap();
-
     let _ = match socket.write(client_req.as_bytes()) {
         Err(e) => {
             println!("[ERROR] on proxy: {}", e);
             return result_err;
         },
         Ok(m) => {
-            //Continue as normal
-            m
         }
     };
     let mut resp: String = String::with_capacity(32768 * 32);
@@ -39,9 +36,7 @@ fn proxy_req_to_localhost(client_req: String) -> String{
                 for byte in buf.iter() {
                     tmp_string.push(*byte as char);
                 }
-                println!("Local proxy response chunk size: {}", m);
                 let tmp_string = get_string_from_buffer_string(tmp_string);
-                // println!("GOT: {}", tmp_string);
                 resp.push_str(&tmp_string);
                 if end_in_two_nl(&resp) {
                     break;
@@ -50,8 +45,6 @@ fn proxy_req_to_localhost(client_req: String) -> String{
             }
         };
     }
-    // println!("==============[BEGIN]==============\n{}\n===============[END]===============",
-    //     resp);
     resp
 }
 
@@ -96,7 +89,6 @@ fn handle_client(mut stream: TcpStream) {
             Err(e) => panic!("[ERROR] setting timeout: {}", e),
             Ok(m) => m
     };
-	println!("New connection established!");
 	let start_time = timestamp();
 
 	let mut from_client = String::new();
@@ -110,6 +102,7 @@ fn handle_client(mut stream: TcpStream) {
                     break 'outer;
                 },
 	            Ok(m) => {
+                    println!("Current request time: {}", timestamp() - start_time);
 					if m == 0 {
 						// Break on EOF
 						println!("Reached EOF!");
