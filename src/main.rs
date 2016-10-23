@@ -3,6 +3,7 @@ extern crate time;
 use std::net::{TcpListener, TcpStream};
 use std::thread;
 use std::io::Read;
+use std::time::Duration;
 use std::io::Write;
 
 fn timestamp() -> f64 {
@@ -45,19 +46,13 @@ fn end_in_two_nl(string: &String) -> bool {
 	false
 }
 
-fn length_u8_array(buffer: &[u8]) -> i32 {
-	let mut out: i32 = 0;
-	for b in buffer {
-		if *b != 0 {
-			out = out + 1;
-		} else {
-			return out;
-		}
-	}
-	out
-}
-
 fn handle_client(mut stream: TcpStream) {
+    // Sixty second connection timeout
+    let timeout_time = Duration::new(60, 0);
+    let _ = match stream.set_read_timeout(Option::Some(timeout_time)) {
+            Err(e) => panic!("[ERROR] setting timeout: {}", e),
+            Ok(m) => m
+    };
 	println!("New connection established!");
 	let start_time = timestamp();
 
@@ -69,7 +64,10 @@ fn handle_client(mut stream: TcpStream) {
 	    'inner: loop {
 	        let mut buf_tmp = [0; 1024];
 	        let _ = match stream.read(&mut buf_tmp) {
-	            Err(e) => panic!("Got an error: {}", e),
+	            Err(e) => {
+                    println!("[ERROR] on read: {}\n |-> Probably past connection timeout.", e);
+                    break 'outer;
+                },
 	            Ok(m) => {
 					if m == 0 {
 						// Break on EOF
@@ -90,16 +88,15 @@ fn handle_client(mut stream: TcpStream) {
 	            },
 	        };
 	    }
-		let elapsed_time = timestamp() - start_time;
-		println!("Elapsed time: {} seconds", elapsed_time);
 		match stream.write(result.as_bytes()) {
-			Err(_) => {
+			Err(e) => {
+                println!("[ERROR] on write: {}", e);
 				break 'outer;
 			}
 			Ok(_) => {
+                println!("==============[BEGIN]==============\n{}\nElapsed time: {}s\n===============[END]===============",
+                    from_client, start_time - timestamp());
 				break 'outer;
-				println!("Total: {}", from_client);
-				return (); // Force close socket/thread
 			}
 		}
 	}
