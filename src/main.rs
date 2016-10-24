@@ -21,6 +21,7 @@ fn proxy_req_to_localhost(client_req: String) -> String{
             return result_err;
         },
         Ok(m) => {
+            m
         }
     };
     let mut resp: String = String::with_capacity(32768 * 32);
@@ -82,9 +83,9 @@ fn end_in_two_nl(string: &String) -> bool {
 	false
 }
 
-fn handle_client(mut stream: TcpStream) {
-    // Sixty second connection timeout
-    let timeout_time = Duration::new(60, 0);
+fn handle_client(mut stream: TcpStream, my_num: u32) {
+    // Five minute connection timeout - like Apache (for some reason)
+    let timeout_time = Duration::new(60 * 5, 0);
     let _ = match stream.set_read_timeout(Option::Some(timeout_time)) {
             Err(e) => panic!("[ERROR] setting timeout: {}", e),
             Ok(m) => m
@@ -102,7 +103,7 @@ fn handle_client(mut stream: TcpStream) {
                     break 'outer;
                 },
 	            Ok(m) => {
-                    println!("Current request time: {}", timestamp() - start_time);
+                    println!("Chunk for {} time: {} sec", my_num, timestamp() - start_time);
 					if m == 0 {
 						// Break on EOF
 						println!("Reached EOF!");
@@ -131,7 +132,7 @@ fn handle_client(mut stream: TcpStream) {
 				break 'outer;
 			}
 			Ok(_) => {
-                println!("Response time: {}", timestamp() - start_time);
+                println!("Request #{} time: {} sec", my_num, timestamp() - start_time);
 				break 'outer;
 			}
 		}
@@ -141,12 +142,14 @@ fn handle_client(mut stream: TcpStream) {
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:88").unwrap();
 	println!("Starting TCP listener...");
+    let mut count: u32 = 0;
     for stream in listener.incoming() {
     	match stream {
             Err(e) => { println!("Failed: {}", e) }
             Ok(stream) => {
+                count = count + 1;
                 thread::spawn(move || {
-                    handle_client(stream)
+                    handle_client(stream, count)
                 });
             }
         }
