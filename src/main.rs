@@ -1,7 +1,7 @@
 extern crate time;
 extern crate rand;
 
-use std::net::{TcpListener, TcpStream};
+use std::net::{TcpListener, TcpStream, Shutdown};
 use std::thread;
 use std::io::Read;
 use std::time::Duration;
@@ -42,6 +42,7 @@ fn proxy_req_to_localhost_bytes(client_req: &[u8]) -> Option<Vec<u8>> {
             }
         };
     }
+    socket.shutdown(Shutdown::Both).expect("Failed to shutdown local proxy stream.");
     Some(resp)
 }
 
@@ -175,6 +176,7 @@ fn handle_client(mut stream: TcpStream, prob_curve: Vec<u64>) {
             },
         }
 	}
+    stream.shutdown(Shutdown::Both).expect("Failed to shutdown local proxy stream.");
 }
 
 fn main() {
