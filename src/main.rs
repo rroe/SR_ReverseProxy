@@ -178,7 +178,7 @@ fn handle_client(mut stream: TcpStream, prob_curve: Vec<u64>) {
 }
 
 fn main() {
-    let listener = TcpListener::bind("127.0.0.1:88").unwrap();
+    let listener = TcpListener::bind(":::88").unwrap();
 	println!("Starting TCP listener...");
     let mut prob_curve: Vec<u64> = Vec::new();
     generate_linear(60, &mut prob_curve);
